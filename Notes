@@ -1,0 +1,60 @@
+CANbus approach:
+
+Baudclock generates a free-running clock signal, but recovers edges when it can to stay in sync.
+
+SPImodule implements a generic shift core, natively represents spi, but with the baud clock, makes a uart.
+
+BitStuffer injects and removes additional transitions to keep the Baudclock in sync.
+	It keeps a shift register five bits wide of all bits passing on the bus.
+	If the shift register is all one state, it muxes itself into the next clock cycle (muxing the spi out) and generates or expects the next state. (counting its own transistions too)
+	This module also generates bitstuffing errors.The can bus powers up in an INHIBIT state, and can only become IDLE after 7 recessive bits.
+
+Collider detects when a dominant bit is generated externally (rx tx mismatch)
+
+CANstateMachine keeps track of address,rtr,ide,length,data,crc,ack,eof	(basically a bit counter, also handles selecting messages to Ack)
+
+
+
+Implement canbus with shiftreg or muxes?
+
+
+
+CAN bus on the FPGA
+
+receiver:
+	Message state machine
+
+	Baud clock
+		edge sync
+		clock gen
+		edge detect and resync
+
+	Bit capture
+		three sample register
+		noise flag
+
+	bit unstuffing:
+		bit state (rx in)
+		unstuff enable input
+		consecutive bits counter
+		clock through
+
+	address capture
+		bit counting register
+		addressable latch
+		address comparators
+
+	mode capture
+		more addressable latches
+		next state select
+
+	Message length capture
+		addressable latch
+		
+	Message capture
+		addressable latch
+
+
+
+
+
