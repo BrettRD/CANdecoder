@@ -24,20 +24,26 @@ CAN bus on the FPGA
 receiver:
 	Message state machine
 
-	Baud clock
+	Baud clock:
 		edge sync
 		clock gen
 		edge detect and resync
 
-	Bit capture
+	Bit capture:
 		three sample register
-		noise flag
+		voting scheme
+		noise flag indicates if there was noise captured.
 
 	bit unstuffing:
 		bit state (rx in)
 		unstuff enable input
 		consecutive bits counter
 		clock through
+
+	CRC:
+		tests the CRC
+		attempts to correct errors
+
 
 	address capture
 		bit counting register

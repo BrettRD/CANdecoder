@@ -48,10 +48,7 @@ module baudclock(
     else begin
       case(state)
         RUN:
-          sampleCounter <= sampleCounter_next;
-
-          //increment the sample counter
-
+          sampleCounter <= sampleCounter_next;  //increment the sample counter
 
         WAIT:  
           //do nothing      
@@ -91,9 +88,6 @@ module baudclock(
       end
       default:
 
-
   end
-
-
 
 endmodule
