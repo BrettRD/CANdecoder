@@ -39,7 +39,7 @@ module PacketCapture(
   parameter BIT_R1      = BIT_R0      + LEN_R0;
   parameter BIT_R0      = BIT_DLC     + LEN_DLC;
   parameter BIT_DLC     = BIT_DATA[0] + LEN_DATA;
-  parameter BIT_DATA [7:0] = '{
+  parameter BIT_DATA [7:0] = {
     BIT_CRC + LEN_CRC + (7 * LEN_DATA),
     BIT_CRC + LEN_CRC + (6 * LEN_DATA),
     BIT_CRC + LEN_CRC + (5 * LEN_DATA),
@@ -56,7 +56,7 @@ module PacketCapture(
   parameter BIT_STDADDR_MSB = BIT_STDADDR + LEN_STDADDR -1;
   parameter BIT_EXTADDR_MSB = BIT_EXTADDR + LEN_EXTADDR -1;
   parameter BIT_DLC_MSB     = BIT_DLC     + LEN_DLC     -1;
-  parameter BIT_DATA_MSB [7:0] = '{
+  parameter BIT_DATA_MSB [7:0] = {
     BIT_DATA[0] + LEN_DATA -1,
     BIT_DATA[1] + LEN_DATA -1,
     BIT_DATA[2] + LEN_DATA -1,
