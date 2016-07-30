@@ -7,7 +7,7 @@ module iCE40_top(
     input pmod_2,  //spi clk
     output pmod_3, //spi miso
     input pmod_4,  //spi cs
-    input pmod_5,
+    input pmod_5,  //packet reset
     input pmod_6,
     input pmod_7,
 
@@ -44,7 +44,7 @@ module iCE40_top(
   assign din = pmod_1;
   
 
-  canUnstuff #(.CONSEC(2)) stuffer (
+  canUnstuff #(.CONSEC(4)) stuffer (
     .clkin(clkin),
     .rxin(din),      //signal containing stuffed bits synced to clkin
     .en(1),        //enable/disable the unstuffing (for EOF data)
@@ -53,9 +53,10 @@ module iCE40_top(
     .err(error)       //we expected a stuffed bit on the rxin, but didn't find one.
   );
 
-  wire [7:0] crcsum;
+  wire [15:0] crcsum;
 
-  canCRC #(.BITS(8), .POLY(150)) simpleCRC (
+  //canCRC #(.BITS(8), .POLY(150)) simpleCRC (
+  canCRC simpleCRC (
     .clk(clkout),
     .din(dout),
     //.zero(),
@@ -70,14 +71,26 @@ module iCE40_top(
   assign pmod_3 = spi_miso; //spi miso
   assign spi_cs = pmod_4;  //spi cs
 
-  spiSlave #(.WIDTH(8)) inspection (
+  spiSlave #(.WIDTH(132)) inspection (
     .clk(spi_clk),
     .cs(spi_cs),
     .s_in(0),
     .s_out(spi_miso),
-    .p_in(crcsum)
+    //.p_in(crcsum)
+    //.p_in(canPacket[131:131-15])
+    .p_in(canPacket)
   );
 
+
+  wire [131:0] canPacket;
+
+  packetCapture stateMachine (
+    .rst(pmod_5),
+    .clk(clkout),
+    .rx(dout),
+    .en(1),
+    .packet(canPacket)
+  );
 
   
 
