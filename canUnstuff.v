@@ -1,6 +1,9 @@
 /*
 This module removes the bit-stuffing from the CANbus signal
 data changes on negative edge, reads on positive edge
+This module uses transparent latching so there is only propagation delay in-out.
+  This does however, permit output glitches on transitions immediately after bit-stuffing errors.
+  The glitches can be prevented by changing the rxin line slightly before negedge clk.
 */
 
 module canUnstuff #(parameter CONSEC = 5) (
@@ -11,7 +14,6 @@ module canUnstuff #(parameter CONSEC = 5) (
   output clkout,   //clock signal with high periods missing where we're stuffing/masking bits
   output err       //we expected a stuffed bit on the rxin, but didn't find one.
 );
-  //parameter CONSEC = 5;
 
   reg bitState = 0;
   reg stuffBit = 0;
@@ -23,7 +25,7 @@ module canUnstuff #(parameter CONSEC = 5) (
     clkout = clkin && !stuffing;  //mask out the next clock cycle if we're stuffing a bit
     rxout = stuffing ? stuffBit : rxin; //output whatever the previous bit was not.
     //can reasonably expect a glitch in rxout as stuffing becomes false.
-    //(only when rxin did not contain a stuffed bit, and the data change occurs slightly after the clock falling edge, and the next rxin bit changes)
+    //(only when rxin did not contain a stuffed bit (error flag is set), and the next rxin data bit changes slightly after the clock falling edge)
   end
 
   always @(posedge clkin) begin
@@ -49,14 +51,11 @@ module canUnstuff #(parameter CONSEC = 5) (
 
   end
 
-  always @(negedge clkin) begin
-    //when we expect the next bit to change.
+  always @(negedge clkin) begin  //when we expect the next bit to change.
     if(en) begin
-      stuffBit <= !bitState;  //store the bit to stuff so we can mask it into place with combinatorial
+      stuffBit <= !bitState;  //store the bit to stuff so we can mask it into place with combinatorial logic
       stuffing <= (consecBits >= CONSEC);  //too many consecutive bits, start stuffing
-      //rxout <= (consecBits >= CONSEC) ? !bitState : rxin; //output whatever the previous bit was not.
     end else begin
-      //rxout <= rxin;
       stuffing <= 0;
     end
 

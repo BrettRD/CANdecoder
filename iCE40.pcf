@@ -5,14 +5,22 @@
 set_io clk 21
 
 #double row pmod port
-set_io pmod[0] 78
-set_io pmod[1] 79
-set_io pmod[2] 80
-set_io pmod[3] 81
-set_io pmod[4] 87
-set_io pmod[5] 88
-set_io pmod[6] 90
-set_io pmod[7] 91
+#set_io pmod[0] 78
+#set_io pmod[1] 79
+#set_io pmod[2] 80
+#set_io pmod[3] 81
+#set_io pmod[4] 87
+#set_io pmod[5] 88
+#set_io pmod[6] 90
+#set_io pmod[7] 91
+set_io pmod_0 78
+set_io pmod_1 79
+set_io pmod_2 80
+set_io pmod_3 81
+set_io pmod_4 87
+set_io pmod_5 88
+set_io pmod_6 90
+set_io pmod_7 91
 
 
 #leds
