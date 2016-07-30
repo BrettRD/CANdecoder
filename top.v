@@ -71,7 +71,7 @@ module iCE40_top(
   assign pmod_3 = spi_miso; //spi miso
   assign spi_cs = pmod_4;  //spi cs
 
-  spiSlave #(.WIDTH(132)) inspection (
+  spiSlave #(.WIDTH(134)) inspection (
     .clk(spi_clk),
     .cs(spi_cs),
     .s_in(0),
@@ -82,7 +82,7 @@ module iCE40_top(
   );
 
 
-  wire [131:0] canPacket;
+  wire [133:0] canPacket;
 
   packetCapture stateMachine (
     .rst(pmod_5),
