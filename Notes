@@ -16,7 +16,8 @@ CANstateMachine keeps track of address,rtr,ide,length,data,crc,ack,eof	(basicall
 
 
 Implement canbus with shiftreg or muxes?
-
+	one-hot shiftreg driven data selector allows interperetation of packet on the fly
+	switching paths looks messy in first attempt
 
 
 CAN bus on the FPGA
@@ -41,9 +42,8 @@ receiver:
 		clock through
 
 	CRC:
-		tests the CRC
-		attempts to correct errors
-
+		computes the CRC during capture
+		attempts to correct errors?
 
 	address capture
 		bit counting register
