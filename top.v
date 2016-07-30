@@ -87,9 +87,9 @@ module iCE40_top(
   packetCapture stateMachine (
     .rst(pmod_5),
     .clk(clkout),
-    .rx(dout),
+    .rx(din),
     .en(1),
-    .packet(canPacket)
+    .dout(canPacket)
   );
 
   
