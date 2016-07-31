@@ -80,6 +80,7 @@ module packetCapture(
   wire [LEN_DLC - 1:0] dlc_input;
   assign dlc_input = packet [DLC_MSB:DLC_LSB];
   assign data_length = (dlc_input < 'd8) ? dlc_input : 'd8;
+  //assign data_length =2;    //testing
 
   //collect the address bits (extened with extention equal to zero is different to standard addressing)
   wire [LEN_STDADDR + LEN_EXTADDR + LEN_IDE -1 : 0] address;
@@ -113,29 +114,27 @@ module packetCapture(
     end else begin
       if(en) begin
         //heaps of right shift operations:
-        //selector [HEAD-1:IDE_LSB] <= selector [HEAD:SRR_LSB]; //up to and including the IDE bit
         selector [HEAD] <=0;
         selector [HEAD-1:IDE_LSB] <= selector [HEAD:IDE_LSB+1]; //up to and including the IDE bit
 
         if(std_addressing) begin
           selector [DLC_MSB] <= selector [IDE_LSB];       //not using extended addressing, skip to data length field (DLC)
-          selector [DLC_MSB-1:DLC_LSB] <= selector [DLC_MSB:DLC_LSB +1];
         end else begin
-          selector [EXTADDR_MSB : DLC_LSB] <= selector [IDE_LSB : DLC_LSB +1]; //shift the MSB extaddr down through the DLC
+          selector [EXTADDR_MSB] <= selector [IDE_LSB]; //shift the MSB extaddr down through the DLC
         end
 
-        if(data_length == 0) begin
-          selector [CRC_MSB] <= selector [DLC_LSB];
-        end else begin  
-          selector [DATA_MSB] <= selector [DLC_LSB];
-          for (i = 0; i<LEN_DATA; i=i+1) begin
-              //if statements use a whole lot more resources.
-              selector [DATA_MSB - i -1] <= selector [DATA_MSB - i] & ((i+1)<(8*data_length));
-          end
+        selector [EXTADDR_MSB-1 : DLC_MSB+1] <= selector [EXTADDR_MSB : DLC_MSB +2]; //shift the MSB extaddr down to the DLC
+        selector [DLC_MSB-1:DLC_LSB] <= selector [DLC_MSB:DLC_LSB +1];  //shift through the dlc
 
-          //mux the input to the CRC from the payload length
-          selector [CRC_MSB] <= selector[DATA_MSB-(8*data_length)+1];
+        //DATA_MSB -0 +1 == DLC_LSB
+        for (i = 0; i<8; i=i+1) begin  //there are 8 data bytes
+          //unconditional shifts within each byte
+          selector [DATA_MSB - (8*i) -1: DATA_MSB - (8*(i+1))] <= selector [DATA_MSB - (8*i): DATA_MSB - (8*(i+1)) +1];
+          //and a bunch of gated shifts into the MSB of each byte
+          selector [DATA_MSB - (8*i)] <= selector [DATA_MSB - (8*i) +1] & ((data_length) > (i));
         end
+        //the crc byte comes from the LSB of the byte where the gated shifts stop
+        selector [CRC_MSB] <= selector[DATA_MSB-(8*data_length)+1];   //DATA_MSB -0 +1 == DLC_LSB
         
         //shift down through the CRC to the interframe space as normal
         selector [CRC_MSB-1:IFS_LSB] <= selector [CRC_MSB:IFS_LSB+1];
