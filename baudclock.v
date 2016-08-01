@@ -6,88 +6,53 @@ The clock output will start immediately after that edge (resetting the div/N cou
 The clock output will have a 50% duty cycle or slightly less due to rounding.
 */
 
-module baudclock(
-  input sampleclk,          //a clock input to the baud counter, used for clock recovery
-  input rst,                //drive high to disable the baud clock, restart
-  input rx,                 //attach to an input edge to enable clock recovery
-  input edgeSel,            //select edges to start the baud clock
-  output reg [1:0] state,   //the current state of the clock generator
-  output clk,               //the clock line for sample and edge generation
-  output lock               //does the baud clock have a lock on the edges?
+module baudclock#(
+    parameter COUNTER_WIDTH = 24,
+  )(
+    input clk,             //a clock input to the baud counter, used for clock recovery
+    input rst,             //drive high to disable the baud clock, reset/enable
+    input rx,              //attach to an input edge to enable clock recovery
+    output baud,           //the baud clock output, negedges synchronised to rx edges
+    output reg lock,       //does the baud clock have a lock on the edges?
+    output reg glitch,     
+    input [COUNTER_WIDTH-1:0] sync_max = 1024;
+    input [COUNTER_WIDTH-1:0] sync_min = count_max - 1024;
+    input [COUNTER_WIDTH-1:0] count_max = -1;   //I think this maxes out the counter
   )
 
-
-  //autostart edge selection
-  //parameter [1:0] AUTO = 2'b00; //baud clock starts immediately on rst falling edge
-  //parameter [1:0] RISE = 2'b01; //baud clock starts on rx falling edge
-  //parameter [1:0] FALL = 2'b10; //baud clock starts on rx rising edge
-  //parameter [1:0] BOTH = 2'b11; //baud clock starts on any edge of rx
-
-  //names for the state machine
-  parameter [1:0] WAIT  = 2'b01;   //wait for an edge on the rx line to do a hard-sync with the rx lne
-  parameter [1:0] RUN = 2'b10;     //the baud clock is running
-
-  parameter [7:0] EdgeTolerance = 8'd2; //how many samples either side of zero are we allowed to be to re-sync?
-
-  reg [7:0] sampleCounter, sampleCounter_next;
-  reg [7:0] samplesPerBit;  //part of clock division, arbitrary div/N counter.
-  reg [7:0] edgeposition;   //stores the position of the last measured edge.
-  reg edgeSource;
-
-  always @(*)
-  begin
-    edgeSource = edgesel ^ rx;                //set up the edge source
-    clk = sampleCounter < (samplesPerBit/2)   //output a square wave.
-    (sampleCounter >= samplesPerBit) ? sampleCounter_next = 0 : sampleCounter_next = sampleCounter_next + 1;
-
+  reg [COUNTER_WIDTH-1:0] counter = 0;
+  reg rxold = 0;  //for rx change detection
+  reg retrig = 0;  //retrigger inhibit
+  always @(*) begin
+    baudclk = counter > (count_max/2);  //rx edges coincide with negedge baud (count reset)
   end
 
-  always @(posedge sampleclk)
-  begin
-    if (rst) state <= wait;
-    else begin
-      case(state)
-        RUN:
-          sampleCounter <= sampleCounter_next;  //increment the sample counter
+  always @(posedge sampleclk) begin
+    rxold <= rx;
 
-        WAIT:  
-          //do nothing      
-        default:
+    if (rst) begin
+      counter <= 0;
+      retrig <= 0;
+    end else begin
+      //if there's been an edge, the first edge, and the phase of the moon is right enough
+      if( (rx != rxold) & !retrig & ( (counter < sync_max) | (counter>sync_min) ) ) begin
+        counter <= 0;  //we can re-sync the clock
+        retrig <= 1;
+        lock <= 1;
+      end else begin
+        
+        if(counter >= count_max) begin
+          counter <= 0; //reset
+        end else begin
+          counter <= counter + 1;
+        end
 
-      endcase
+        if(counter == (count_max/2))begin
+          retrig <= 0;  //reset the retrigger inhibitor outside of the sync windows
+        end
+
+      end
     end
-  end
-
-  always @(posedge edgeSource)
-  begin
-    case(state)
-      RUN:
-      begin
-        if((sampleCounter < EdgeTolerance) || (sampleCounter > (samplesPerBit-EdgeTolerance) ))
-        begin   //we're within the re-sync window
-          //sampleCounter <= 0; //force a resync, reset the counter.
-          edgeposition <= sampleCounter; //store the location of the edge. (I don't know why yet, maybe this can become a digital PLL)
-          lock <= 1;
-        end
-        else
-        begin
-          //edge outside of where we expect it.  This means either noise, or a phase drift we've given up on.
-          lock <= 0;
-        end
-
-      end
-
-      WAIT:
-      begin
-        if(!rst)  //if we are not held in reset, WAIT is an edge-activated state
-        begin
-          state <= RUN;
-          sampleCounter <= 0; //force a resync, reset the counter.
-          lock <= 1;
-        end
-      end
-      default:
-
   end
 
 endmodule
