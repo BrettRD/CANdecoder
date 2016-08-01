@@ -14,9 +14,9 @@ module baudclock#(
     output baud,           //the baud clock output, negedges synchronised to rx edges
     output reg lock,       //does the baud clock have a lock on the edges?
     output reg glitch,     //
-    input [COUNTER_WIDTH-1:0] sync_max = 1024;
-    input [COUNTER_WIDTH-1:0] sync_min = count_max - 1024;
-    input [COUNTER_WIDTH-1:0] count_max = -1;   //I think this maxes out the counter
+    input [COUNTER_WIDTH-1:0] sync_max = 1024,
+    input [COUNTER_WIDTH-1:0] sync_min = count_max - 1024,
+    input [COUNTER_WIDTH-1:0] count_max = -1,   //I think this maxes out the counter
   );
 
   reg [COUNTER_WIDTH-1:0] counter = 0;
@@ -34,7 +34,7 @@ module baudclock#(
   end
 
 
-  always @(posedge sampleclk) begin
+  always @(posedge clk) begin
     rxold <= rx;
 
     if (rst) begin
