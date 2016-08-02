@@ -7,7 +7,6 @@ module spiSlave #(
   )(
     input clk,
     input cs,
-    //input rst,
     input s_in,
     output reg s_out,
 
