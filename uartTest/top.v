@@ -35,10 +35,14 @@ module iCE40_top(
   wire glitch;
 
   assign led[4] = clkout;
-  assign led[0] = !lock;
-  assign led[1] = glitch;
-  assign led[2] = !rx;
-  assign led[3] = 0;
+  //assign led[0] = !lock;
+  //assign led[1] = glitch;
+  //assign led[2] = !rx;
+  //assign led[3] = 0;
+  assign led[0] = bitCount[0];
+  assign led[1] = bitCount[1];
+  assign led[2] = bitCount[2];
+  assign led[3] = bitCount[3];
 
   //assign rst = pmod_0;  //baud clock reset, uart chip select
   assign rx = pmod_1;   //data
@@ -88,26 +92,31 @@ module iCE40_top(
 
 //---------Uart start/stop logic
 
-  reg [$clog2(N_BITS)+1:0] bitCount = 0;
-  parameter STOP = 1;
-  parameter RUN = 0;
-  reg uartState = STOP;
+  reg [3:0] bitCount = 0;
+  //parameter STOP = 1;
+  //parameter RUN = 0;
+  reg uartState;
+
+  reg uartStart;
+  reg uartStop;
+  assign uartState = (uartStart == uartStop);
   //change to RUN on first edge of rx start bit (negedge)
   //change to STOP on 8th rising clock after run
 
   //wire startEdge;
   //assign startEdge = ((!rx) & uartState);   //idle "1" on ttl rx line
+
+
   always @(negedge rx) begin
-    uartState <= RUN;   //this assertion is ignored because of the driver below
+    uartStart <= !uartStop;
   end
 
   always @(posedge clkout) begin
     if (bitCount >= 8) begin
       bitCount <= 0;
-      uartState <= STOP;  //uartCore.packet() becomes valid now
+      uartStop <= uartStart;  //uartCore.packet() becomes valid now
     end else begin
-      //reset
-      bitCount <= bitCount +1;
+      bitCount <= bitCount + 1;
     end
   end
 
