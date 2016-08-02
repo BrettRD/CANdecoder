@@ -95,21 +95,19 @@ module iCE40_top(
   //change to RUN on first edge of rx start bit (negedge)
   //change to STOP on 8th rising clock after run
 
-  wire startEdge;
-  assign startEdge = ((!rx) & uartState);   //idle "1" on ttl rx line
+  //wire startEdge;
+  //assign startEdge = ((!rx) & uartState);   //idle "1" on ttl rx line
+  always @(negedge rx) begin
+    uartState <= RUN;   //this assertion is ignored because of the driver below
+  end
 
-  always @(posedge clkout or posedge startEdge) begin
-    if(startEdge)begin  //using startEdge as a reset bar on the flipflops
-      uartState <= RUN;
+  always @(posedge clkout) begin
+    if (bitCount >= 8) begin
       bitCount <= 0;
+      uartState <= STOP;  //uartCore.packet() becomes valid now
     end else begin
-      if (bitCount >= 8) begin
-        uartState <= STOP;  //uartCore.packet() becomes valid now
-        bitCount <= 0;
-      end else begin
-        //reset
-        bitCount <= bitCount +1;
-      end
+      //reset
+      bitCount <= bitCount +1;
     end
   end
 
