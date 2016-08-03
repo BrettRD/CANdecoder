@@ -14,7 +14,7 @@ module spiSlave #(
     output reg [WIDTH-1:0] p_out,
   );
 
-  reg [WIDTH-1:0] shift_reg = 0;
+  reg [WIDTH-1:0] shift_reg;
   wire core_clk;
   parameter PAR = 0;
   parameter SER = 1;
@@ -35,10 +35,11 @@ module spiSlave #(
     end
   end
 
-  always @(posedge core_clk) begin  //cs or clk rising edge, shift data in
+  always @(posedge core_clk or posedge cs) begin  //cs or clk rising edge, shift data in
     if(cs) begin  //cs rising edge, end of transmission
-      p_out <= shift_reg;
+      //p_out <= shift_reg;   //generates a warning "non-constant async reset value"
       mode <= PAR;
+      shift_reg <= 0;  //ignores the initialiser because I have a reset bar here
     end else begin  //cs is enabled, shift in
       if(mode == PAR) begin
         shift_reg <= {p_buf[WIDTH-2:0],s_in};  //load the shift register with the parallel data (buffered from cs negedge)
@@ -48,4 +49,9 @@ module spiSlave #(
       end
     end
   end
+
+  always @(posedge cs) begin
+    p_out <= shift_reg;   //should be edge triggered, not promoted to async
+  end
+
 endmodule

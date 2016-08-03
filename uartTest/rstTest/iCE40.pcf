@@ -1,0 +1,47 @@
+# User Constraint File for icestick iCE40hx1k Breakout Board
+
+
+#12MHz crystal
+set_io clk 21
+
+#double row pmod port
+#set_io pmod[0] 78
+#set_io pmod[1] 79
+#set_io pmod[2] 80
+#set_io pmod[3] 81
+#set_io pmod[4] 87
+#set_io pmod[5] 88
+#set_io pmod[6] 90
+#set_io pmod[7] 91
+set_io pmod_0 78
+set_io pmod_1 79
+set_io pmod_2 80
+#set_io pmod_3 81
+#set_io pmod_4 87
+#set_io pmod_5 88
+#set_io pmod_6 90
+#set_io pmod_7 91
+
+
+#leds
+set_io led[0] 99
+set_io led[1] 98
+set_io led[2] 97
+set_io led[3] 96
+set_io led[4] 95
+
+#ftdi uart
+#set_io fdti_rx  9
+#set_io fdti_tx  8
+#set_io fdti_rts 7
+#set_io fdti_cts 4
+#set_io fdti_dtr 3
+#set_io fdti_dsr 2
+#set_io fdti_dcd 1
+
+
+#ftdi master, fpga slave
+#set_io fdti_clk 70
+#set_io ftdi_din 68
+#set_io ftdi_dout 67
+#set_io ftdi_ss 71

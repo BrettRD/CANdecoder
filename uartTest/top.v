@@ -28,43 +28,47 @@ module iCE40_top(
   );
 
   wire rst;
-  wire rx;
+  wire uart_rx;
   wire cs;
   wire clkout;
   wire lock;
   wire glitch;
 
-  assign led[4] = clkout;
-  //assign led[0] = !lock;
-  //assign led[1] = glitch;
-  //assign led[2] = !rx;
-  //assign led[3] = 0;
-  assign led[0] = bitCount[0];
-  assign led[1] = bitCount[1];
-  assign led[2] = bitCount[2];
-  assign led[3] = bitCount[3];
+  wire uartState;
 
-  //assign rst = pmod_0;  //baud clock reset, uart chip select
-  assign rx = pmod_1;   //data
+  assign led[4] = clkout;
+  assign led[0] = !uartState;
+  assign led[1] = glitch;
+  assign led[2] = !uart_rx;
+  assign led[3] = !lock;
+  //assign led[0] = uartState;
+  //assign led[1] = uartStart;
+  //assign led[2] = !uart_rx;
+  //assign led[3] = uartStop;
   
+  //assign rst = pmod_0;  //baud clock reset, uart chip select
+  assign uart_rx = pmod_1;   //data
+  //assign pmod_2 = uartState;
 
   parameter CLK_RATE = 'd12000000;  //12MHz xtal
-  parameter BAUD_RATE = 'd3;   //125KHz CANBus
+  parameter BAUD_RATE = 'd9600;   //9600 uart
   parameter CLK_MAX = (CLK_RATE/BAUD_RATE);
 
-  parameter SYNC_TOL = (CLK_MAX/10);
+  //parameter SYNC_TOL = 100;
+  parameter SYNC_TOL = (CLK_MAX/5);
   parameter SYNC_MAX = SYNC_TOL;  //permit edges until SYNC_MAX cycles after counter reset
   parameter SYNC_MIN = (CLK_MAX - SYNC_TOL);  //permit edges after SYNC_MIN cycles after counter reset
-  parameter CLK_WIDTH = $clog2(CLK_MAX) + 1; //
+  parameter CLK_WIDTH = $clog2(CLK_MAX+1) + 1; //
 
-  parameter N_BITS = 'd11;
+  parameter N_BITS = 9;
 
   baudclock #(.COUNTER_WIDTH(CLK_WIDTH)) baudclock(
   //baudclock #(.COUNTER_WIDTH(11)) baudclock(
     .clk(clk),
+    //.rst(0),
     .rst(uartState),
-    .rx(0),
-    //.rx(rx),
+    //.rx(1),
+    .rx(uart_rx),
     .baud(clkout),
     .lock(lock),
     .glitch(glitch),
@@ -80,50 +84,25 @@ module iCE40_top(
   wire [N_BITS-1:0] packet; //packet captured on uart is buffered by uartCore
 
 
-
  spiSlave #(.WIDTH(N_BITS)) uartCore(
     .clk(clkout),
     .cs(uartState),
-    .s_in(rx),
+    .s_in(uart_rx),
     //.s_out(),
     .p_in(0),
     .p_out(packet)
   );
 
-//---------Uart start/stop logic
-
-  reg [3:0] bitCount = 0;
-  //parameter STOP = 1;
-  //parameter RUN = 0;
-  reg uartState;
-
-  reg uartStart;
-  reg uartStop;
-  assign uartState = (uartStart == uartStop);
-  //change to RUN on first edge of rx start bit (negedge)
-  //change to STOP on 8th rising clock after run
-
-  //wire startEdge;
-  //assign startEdge = ((!rx) & uartState);   //idle "1" on ttl rx line
-
-
-  always @(negedge rx) begin
-    uartStart <= !uartStop;
-  end
-
-  always @(posedge clkout) begin
-    if (bitCount >= 8) begin
-      bitCount <= 0;
-      uartStop <= uartStart;  //uartCore.packet() becomes valid now
-    end else begin
-      bitCount <= bitCount + 1;
-    end
-  end
+  uartRst #(.N_BITS(N_BITS)) uartLogic (
+    .baud(clkout),
+    //.baud(pmod_0),
+    .rx(uart_rx),
+    .run(uartState)
+  );
 
 
 
-
-  //-------SPI to read the packets captured
+//-------SPI to read the packets captured
 
   wire spi_clk;
   wire spi_miso;
@@ -138,7 +117,7 @@ module iCE40_top(
     .cs(spi_cs),
     .s_in(0),
     .s_out(spi_miso),
-    .p_in(packet[8:1])
+    .p_in(packet[7:0])
     //.p_in('h5A)
   );
 
