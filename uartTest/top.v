@@ -50,17 +50,17 @@ module iCE40_top(
   assign uart_rx = pmod_1;   //data
   //assign pmod_2 = uartState;
 
-  parameter CLK_RATE = 'd12000000;  //12MHz xtal
-  parameter BAUD_RATE = 'd9600;   //9600 uart
+  parameter CLK_RATE = 'd12200000;  //12MHz xtal
+  parameter BAUD_RATE = 'd115200;   //9600 uart
   parameter CLK_MAX = (CLK_RATE/BAUD_RATE);
+  parameter CLK_MID = 2*(CLK_MAX/3);
 
-  //parameter SYNC_TOL = 100;
-  parameter SYNC_TOL = (CLK_MAX/5);
+  parameter SYNC_TOL = 0;
+  //parameter SYNC_TOL = (CLK_MAX/5);
   parameter SYNC_MAX = SYNC_TOL;  //permit edges until SYNC_MAX cycles after counter reset
   parameter SYNC_MIN = (CLK_MAX - SYNC_TOL);  //permit edges after SYNC_MIN cycles after counter reset
   parameter CLK_WIDTH = $clog2(CLK_MAX+1) + 1; //
-
-  parameter N_BITS = 9;
+  parameter N_BITS = 12;
 
   baudclock #(.COUNTER_WIDTH(CLK_WIDTH)) baudclock(
   //baudclock #(.COUNTER_WIDTH(11)) baudclock(
@@ -74,7 +74,8 @@ module iCE40_top(
     .glitch(glitch),
     .sync_max(SYNC_MAX),
     .sync_min(SYNC_MIN),
-    .count_max(CLK_MAX)
+    .count_max(CLK_MAX),
+    .count_mid(CLK_MID)
     //.sync_max(125),
     //.sync_min(1125),
     //.count_max(1250)
@@ -112,12 +113,12 @@ module iCE40_top(
   assign spi_cs = pmod_4;  //spi cs
 
 
-  spiSlave #(.WIDTH(8)) spiSlave (
+  spiSlave #(.WIDTH(16)) spiSlave (
     .clk(spi_clk),
     .cs(spi_cs),
     .s_in(0),
     .s_out(spi_miso),
-    .p_in(packet[7:0])
+    .p_in({{15-N_BITS{1}},packet})
     //.p_in('h5A)
   );
 

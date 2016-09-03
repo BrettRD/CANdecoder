@@ -16,7 +16,8 @@ module baudclock#(
     output reg glitch,     //
     input [COUNTER_WIDTH-1:0] sync_max = 1024,
     input [COUNTER_WIDTH-1:0] sync_min = count_max - 1024,
-    input [COUNTER_WIDTH-1:0] count_max = -1,   //I think this maxes out the counter
+    input [COUNTER_WIDTH-1:0] count_max = 12000000,
+    input [COUNTER_WIDTH-1:0] count_mid = count_max/2
   );
 
   reg [COUNTER_WIDTH-1:0] counter = 0;
@@ -55,7 +56,7 @@ module baudclock#(
           baud <= 0;
         end else begin
           counter <= counter + 1;
-          if(counter == (count_max/2))begin
+          if(counter == (count_mid))begin
             baud <= 1;
           end
         end

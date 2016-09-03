@@ -32,6 +32,7 @@ module spiSlave #(
       p_buf <= p_in;  //capture the data on cs falling edge, but don't load the shift reg yet
     end else begin
       s_out <= shift_reg[WIDTH-1];
+      p_buf <= shift_reg;
     end
   end
 
@@ -51,7 +52,7 @@ module spiSlave #(
   end
 
   always @(posedge cs) begin
-    p_out <= shift_reg;   //should be edge triggered, not promoted to async
+    p_out <= p_buf;   //should be edge triggered, not promoted to async
   end
 
 endmodule
