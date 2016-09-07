@@ -16,10 +16,15 @@ module packetCapture(
     //output reg [7:0] count,    //the number of bits captured since rst.
     output [HEAD:0] dout,
     input ack,                 //external logic has requested an ack to the packet
-    output tx                  //canTX line to ack
+    output tx,                  //canTX line to ack
+    output done,
+    output ext_addressing,
+    output [64] payload,
+    output [LEN_STDADDR + LEN_IDE + LEN_EXTADDR] address
   );
 
   //the lengths of the various fields
+  parameter LEN_SOF     =  1;
   parameter LEN_STDADDR = 11;
   parameter LEN_SRR     =  1;  //rtr bit for standard length
   parameter LEN_IDE     =  1;
@@ -37,21 +42,22 @@ module packetCapture(
   parameter LEN_IFS     =  7;
   
   //the LSB locations of the various fields
-  parameter STDADDR_LSB = SRR_LSB     + LEN_SRR;
-  parameter SRR_LSB     = IDE_LSB     + LEN_IDE;
-  parameter IDE_LSB     = EXTADDR_LSB + LEN_EXTADDR;
-  parameter EXTADDR_LSB = RTR_LSB     + LEN_RTR;
-  parameter RTR_LSB     = R1_LSB      + LEN_R1;
-  parameter R1_LSB      = R0_LSB      + LEN_R0;
-  parameter R0_LSB      = DLC_LSB     + LEN_DLC;
-  parameter DLC_LSB     = DATA_LSB    + LEN_DATA;
-  parameter DATA_LSB    = CRC_LSB     + LEN_CRC;
-  parameter CRC_LSB     = CRCDEL_LSB  + LEN_CRCDEL;
-  parameter CRCDEL_LSB  = ACK_LSB     + LEN_ACK;
-  parameter ACK_LSB     = ACKDEL_LSB  + LEN_ACKDEL;
-  parameter ACKDEL_LSB  = EOF_LSB     + LEN_EOF;
-  parameter EOF_LSB     = IFS_LSB     + LEN_IFS;
-  parameter IFS_LSB     = 0;
+  parameter SOF_LSB     = STDADDR_LSB + LEN_STDADDR;  //134
+  parameter STDADDR_LSB = SRR_LSB     + LEN_SRR;      //123
+  parameter SRR_LSB     = IDE_LSB     + LEN_IDE;      //122
+  parameter IDE_LSB     = EXTADDR_LSB + LEN_EXTADDR;  //121
+  parameter EXTADDR_LSB = RTR_LSB     + LEN_RTR;      //103
+  parameter RTR_LSB     = R1_LSB      + LEN_R1;       //102
+  parameter R1_LSB      = R0_LSB      + LEN_R0;       //101
+  parameter R0_LSB      = DLC_LSB     + LEN_DLC;      //100
+  parameter DLC_LSB     = DATA_LSB    + LEN_DATA;     //96
+  parameter DATA_LSB    = CRC_LSB     + LEN_CRC;      //32
+  parameter CRC_LSB     = CRCDEL_LSB  + LEN_CRCDEL;   //17
+  parameter CRCDEL_LSB  = ACK_LSB     + LEN_ACK;      //16
+  parameter ACK_LSB     = ACKDEL_LSB  + LEN_ACKDEL;   //15
+  parameter ACKDEL_LSB  = EOF_LSB     + LEN_EOF;      //14
+  parameter EOF_LSB     = IFS_LSB     + LEN_IFS;      //7
+  parameter IFS_LSB     = 0;                          //0
 
   //the MSB locations of the various fields
   parameter STDADDR_MSB = STDADDR_LSB + LEN_STDADDR -1;
@@ -62,19 +68,20 @@ module packetCapture(
   parameter EOF_MSB     = EOF_LSB     + LEN_EOF     -1;
   parameter IFS_MSB     = IFS_LSB     + LEN_IFS     -1;
 
-  parameter HEAD = STDADDR_MSB;
+  parameter HEAD = SOF_LSB;
 
-  //HEAD = 133.
+  //HEAD = 134.
   reg [HEAD:0] packet = 0;   //the packet captured so far, this gets broken into fields by assign operators
   reg [HEAD:0] selector = {1,{HEAD{0}}}; //the one-hot state selector (based on shift registers)
 
   assign dout = packet;
 
-  wire std_addressing;
-  assign std_addressing = packet[IDE_LSB];
+  wire ext_addressing;
+  assign ext_addressing = packet[IDE_LSB]; //IDE ==1 for extended addresses
+  //assign ext_addressing = 1;  //testing
   
   wire rtr;
-  assign rtr = std_addressing? packet [RTR_LSB]: packet [SRR_LSB];
+  assign rtr = ext_addressing? packet [RTR_LSB]: packet [SRR_LSB];
   
   wire [LEN_DLC - 1:0] data_length;
   wire [LEN_DLC - 1:0] dlc_input;
@@ -83,20 +90,25 @@ module packetCapture(
   //assign data_length =2;    //testing
 
   //collect the address bits (extened with extention equal to zero is different to standard addressing)
-  wire [LEN_STDADDR + LEN_EXTADDR + LEN_IDE -1 : 0] address;
   assign address = {packet[STDADDR_MSB:STDADDR_LSB], packet[IDE_LSB] ,packet[EXTADDR_MSB:EXTADDR_LSB]};
 
   //drive the ack bit at the right time. External logic can handle the address matching
   assign tx = selector[ACK_LSB] & ack;
-  //real ones check that rx behaves itself when we drive ack
 
+  //assign done = selector[IFS_LSB];
+  assign done = selector[IFS_LSB];
+  reg j;
   always @(posedge clk or posedge rst) begin
     if(rst) begin
-      packet <= 0;
+      //packet <= 0;
     end else begin
       if(en) begin
         //load the rx line into the appropriate bit of the packet:
-        packet <= (selector & {HEAD+1{rx}}) | packet;
+        //packet <= (selector & {HEAD+1{rx}}) | (!selector & packet); //glitching!?!
+
+        for (j = 0; j<(HEAD+1); j=j+1) begin
+          if(selector[j]) packet[j] <= rx;
+        end
 
         if(tx & !rx) begin
           //we've failed to deliver the ack to the bus, throw some kind of error flag
@@ -114,16 +126,22 @@ module packetCapture(
     end else begin
       if(en) begin
         //heaps of right shift operations:
-        selector [HEAD] <=0;
+        selector [HEAD] <= 0;
         selector [HEAD-1:IDE_LSB] <= selector [HEAD:IDE_LSB+1]; //up to and including the IDE bit
 
-        if(std_addressing) begin
-          selector [DLC_MSB] <= selector [IDE_LSB];       //not using extended addressing, skip to data length field (DLC)
-        end else begin
+        if(ext_addressing) begin
           selector [EXTADDR_MSB] <= selector [IDE_LSB]; //shift the MSB extaddr down through the DLC
+          selector [R0_LSB] <= selector [R1_LSB];
+        end else begin
+          selector [R0_LSB] <= selector [IDE_LSB];       //not using extended addressing, skip to data length field (DLC)
         end
 
-        selector [EXTADDR_MSB-1 : DLC_MSB+1] <= selector [EXTADDR_MSB : DLC_MSB +2]; //shift the MSB extaddr down to the DLC
+        //selector [EXTADDR_MSB-1 : DLC_MSB+1] <= selector [EXTADDR_MSB : DLC_MSB +2]; //shift the MSB extaddr down to the DLC
+        selector [EXTADDR_MSB-1 : EXTADDR_LSB] <= selector [EXTADDR_MSB : EXTADDR_LSB+1]; //shift the MSB extaddr down to the DLC
+        selector [RTR_LSB] <= selector [EXTADDR_LSB];
+        selector [R1_LSB] <= selector [RTR_LSB];
+        
+        selector [DLC_MSB] <= selector [R0_LSB];
         selector [DLC_MSB-1:DLC_LSB] <= selector [DLC_MSB:DLC_LSB +1];  //shift through the dlc
 
         //DATA_MSB -0 +1 == DLC_LSB

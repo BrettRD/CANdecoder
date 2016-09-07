@@ -38,26 +38,30 @@ module iCE40_top(
   wire clkin;
   wire clkout;
   wire error;
-  wire pkRst;
+  reg pkRst =1;
   wire baudLock;
   //assign led[4] = error;
-  assign led[4] = baudLock;
-  assign led[0] = din;
-  assign led[1] = dout;
-  assign led[2] = clkin;
-  assign led[3] = clkout;
+  //assign led[4] = baudLock;
+  //assign led[0] = din;
+  //assign led[1] = dout;
+  //assign led[2] = clkin;
+  //assign led[3] = clkout;
 
   //assign clkin = pmod_0;  //use the baud clock from now on
   assign din = pmod_1;
-  assign pkRst = pmod_5;
+  //assign pkRst = pmod_5;
 
   parameter CLK_RATE = 12000000;  //12MHz xtal
   parameter BAUD_RATE = 125000;   //125KHz CANBus
+  
   parameter CLK_MAX = (CLK_RATE/BAUD_RATE);  //96
 
-  parameter SYNC_TOL = (CLK_MAX/10);  //9
+  //parameter SYNC_TOL = (CLK_MAX/10);  //9
+  parameter SYNC_TOL = 9;
   parameter SYNC_MAX = SYNC_TOL;  //permit edges until SYNC_TOL cycles after counter reset
   parameter SYNC_MIN = (CLK_MAX - SYNC_TOL);  //105, permit edges after SYNC_TOL cycles after counter reset
+
+
   parameter CLK_WIDTH = $clog2(CLK_MAX); //7
 
 
@@ -83,7 +87,7 @@ module iCE40_top(
   );
 
   wire [15:0] crcsum;
-  wire [133:0] canPacket;
+  wire [134:0] canPacket;
 
   //canCRC #(.BITS(8), .POLY(150)) simpleCRC (
   canCRC #(.BITS(15), .POLY('h4599)) canCRC (
@@ -93,33 +97,71 @@ module iCE40_top(
     .remainder(crcsum)
   );
 
+
+  wire [63:0] canPayload;
+  wire canstdaddr;
+  wire [29:0] canAddr;
+  assign led[3:0] = canPacket[83:80];
+  //assign led[3:0] = canPayload[51:48];
+  //assign led[4] = !din;
+  //assign led[4] = clkin;
+  assign led[4] = !pkRst;
+
+  wire endtx;
+//--------- start detect
+  wire rst;
+  assign rst = pmod_5;
+  always @(posedge clk or posedge rst) begin
+    if (rst) begin
+      // reset
+      pkRst <= 1;
+    end else begin
+      if (pkRst) begin
+        if(din == 0) begin
+          pkRst <= 0;
+        end
+      end else if (endtx) begin
+        pkRst <= 1;
+      end
+    end
+  end
+
+
+
   packetCapture stateMachine (
     .rst(pkRst),
     .clk(clkout),
     .rx(din),   //n
     .en(1),
-    .dout(canPacket)
+    .dout(canPacket),
+    .done(endtx),
+    .ext_addressing(canstdaddr),
+    .payload(canPayload),
+    .address(canAddr)
   );
+
+
 
   //-------SPI to read the packets captured
-
-  wire spi_clk;
-  wire spi_miso;
-  wire spi_cs;
-  assign spi_clk = pmod_2;  //spi clk
-  assign pmod_3 = spi_miso; //spi miso
-  assign spi_cs = pmod_4;  //spi cs
-
-
-  spiSlave #(.WIDTH(134)) inspection (
-    .clk(spi_clk),
-    .cs(spi_cs),
-    .s_in(0),
-    .s_out(spi_miso),
-    //.p_in(crcsum)
-    //.p_in(canPacket[131:131-15])
-    .p_in(canPacket)
-  );
+//
+  //wire spi_clk;
+  //wire spi_miso;
+  //wire spi_cs;
+  //assign spi_clk = pmod_2;  //spi clk
+  //assign pmod_3 = spi_miso; //spi miso
+  assign pmod_3 = 0; //spi miso
+  //assign spi_cs = pmod_4;  //spi cs
+//
+//
+//  spiSlave #(.WIDTH(134)) inspection (
+//    .clk(spi_clk),
+//    .cs(spi_cs),
+//    .s_in(0),
+//    .s_out(spi_miso),
+//    //.p_in(crcsum)
+//    //.p_in(canPacket[131:131-15])
+//    .p_in(canPacket)
+//  );
 
 
 

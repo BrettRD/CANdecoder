@@ -41,8 +41,8 @@ module baudclock#(
       rxold <= rx;
 
       //rxEdge = rx & !rxold;  //rising edge only
-      //rxEdge = !rx & rxold;  //falling edge only
-      rxEdge = rx ^ rxold;  //any edge
+      rxEdge = !rx & rxold;  //falling edge only
+      //rxEdge = rx ^ rxold;  //any edge
       inWindow = (counter < sync_max) || (counter>sync_min);
 
       if(rxEdge && inWindow && !trig) begin
