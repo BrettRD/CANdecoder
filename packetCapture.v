@@ -16,7 +16,10 @@ module packetCapture(
     //output reg [7:0] count,    //the number of bits captured since rst.
     output [HEAD:0] dout,
     input ack,                 //external logic has requested an ack to the packet
-    output tx,                  //canTX line to ack
+    output tx,                 //canTX line to ack
+    output reg stuffing,       //remove bit-stuffing
+    output reg runCRC,         //count incoming bits for CRC
+    output reg checkCRC,       //CRC has been received
     output done,
     output ext_addressing,
     output [64] payload,
@@ -97,7 +100,10 @@ module packetCapture(
 
   //assign done = selector[IFS_LSB];
   assign done = selector[IFS_LSB];
-  reg j;
+
+  reg crcmsbD;  //allow halt of CRC updates prior to CRC reception
+
+  reg j;  //used in for loop
   always @(posedge clk or posedge rst) begin
     if(rst) begin
       //packet <= 0;
@@ -123,6 +129,10 @@ module packetCapture(
     if(rst) begin
       selector[HEAD] <= 1;  //start with the first bit
       selector[HEAD-1:0] <= {HEAD{0}};  //and zeroes elsewhere
+
+      stuffing <= 0;
+      runCRC <= 0;
+      checkCRC <= 0;
     end else begin
       if(en) begin
         //heaps of right shift operations:
@@ -136,11 +146,12 @@ module packetCapture(
           selector [R0_LSB] <= selector [IDE_LSB];       //not using extended addressing, skip to data length field (DLC)
         end
 
-        //selector [EXTADDR_MSB-1 : DLC_MSB+1] <= selector [EXTADDR_MSB : DLC_MSB +2]; //shift the MSB extaddr down to the DLC
+        //extended address bits skipped in normal addressing
         selector [EXTADDR_MSB-1 : EXTADDR_LSB] <= selector [EXTADDR_MSB : EXTADDR_LSB+1]; //shift the MSB extaddr down to the DLC
         selector [RTR_LSB] <= selector [EXTADDR_LSB];
         selector [R1_LSB] <= selector [RTR_LSB];
-        
+
+        //R0 and DLC are required
         selector [DLC_MSB] <= selector [R0_LSB];
         selector [DLC_MSB-1:DLC_LSB] <= selector [DLC_MSB:DLC_LSB +1];  //shift through the dlc
 
@@ -151,12 +162,30 @@ module packetCapture(
           //and a bunch of gated shifts into the MSB of each byte
           selector [DATA_MSB - (8*i)] <= selector [DATA_MSB - (8*i) +1] & ((data_length) > (i));
         end
-        //the crc byte comes from the LSB of the byte where the gated shifts stop
-        selector [CRC_MSB] <= selector[DATA_MSB-(8*data_length)+1];   //DATA_MSB -0 +1 == DLC_LSB
+
+        //the crc msb comes from the LSB of the byte where the gated shifts stop
+        crcmsbD = selector[DATA_MSB-(8*data_length)+1];   //tmp variable for disabling the CRC unit
+        selector [CRC_MSB] <= crcmsbD;
         
         //shift down through the CRC to the interframe space as normal
         selector [CRC_MSB-1:IFS_LSB] <= selector [CRC_MSB:IFS_LSB+1];
 
+
+        //---------state outputs
+        if(selector[STDADDR_LSB]) begin
+          stuffing<=1;
+          runCRC<=1;
+        end
+
+        if(selector[CRC_LSB]) begin  //stop after CRC
+        //if(crcmsbD) begin  //stop before CRC
+          runCRC<=0;
+        end
+
+        //disable the bit-stuffing for the end of frame space
+        if(selector[ACKDEL_LSB]) begin
+          stuffing<=0;
+        end
       end
     end
   end

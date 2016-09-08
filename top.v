@@ -40,12 +40,27 @@ module iCE40_top(
   wire error;
   reg pkRst =1;
   wire baudLock;
+
+  wire enStuffing;
+  wire enCRC;
+
+  wire endtx;
+  wire rst;
+  assign rst = pmod_5;
+  
   //assign led[4] = error;
   //assign led[4] = baudLock;
   //assign led[0] = din;
   //assign led[1] = dout;
   //assign led[2] = clkin;
   //assign led[3] = clkout;
+
+  assign led[3:0] = canPacket[83:80];
+  //assign led[3:0] = canPayload[51:48];
+  //assign led[4] = !din;
+  //assign led[4] = clkin;
+  assign led[4] = !pkRst;
+
 
   //assign clkin = pmod_0;  //use the baud clock from now on
   assign din = pmod_1;
@@ -79,19 +94,20 @@ module iCE40_top(
 
   canUnstuff #(.CONSEC(4)) stuffer (
     .clkin(clkin),
-    .rxin(din),      //signal containing stuffed bits synced to clkin
-    .en(1),        //enable/disable the unstuffing (for EOF data)
+    .rxin(din),        //signal containing stuffed bits synced to clkin
+    .en(enStuffing),   //enable/disable the unstuffing (for EOF data)
     //.rxout(dout),    //signal with bits we've stuffed for transmission.
     .clkout(clkout),   //clock signal with high periods missing where we're stuffing/masking bits
-    .err(error)       //we expected a stuffed bit on the rxin, but didn't find one.
+    .err(error)        //we expected a stuffed bit on the rxin, but didn't find one.
   );
 
   wire [15:0] crcsum;
   wire [134:0] canPacket;
-
   //canCRC #(.BITS(8), .POLY(150)) simpleCRC (
   canCRC #(.BITS(15), .POLY('h4599)) canCRC (
     .clk(clkout),
+    .rst(pkRst),
+    .en(enCRC),
     .din(din),
     //.zero(),
     .remainder(crcsum)
@@ -101,16 +117,8 @@ module iCE40_top(
   wire [63:0] canPayload;
   wire canstdaddr;
   wire [29:0] canAddr;
-  assign led[3:0] = canPacket[83:80];
-  //assign led[3:0] = canPayload[51:48];
-  //assign led[4] = !din;
-  //assign led[4] = clkin;
-  assign led[4] = !pkRst;
 
-  wire endtx;
 //--------- start detect
-  wire rst;
-  assign rst = pmod_5;
   always @(posedge clk or posedge rst) begin
     if (rst) begin
       // reset
@@ -125,7 +133,7 @@ module iCE40_top(
       end
     end
   end
-
+  
 
 
   packetCapture stateMachine (
@@ -134,6 +142,8 @@ module iCE40_top(
     .rx(din),   //n
     .en(1),
     .dout(canPacket),
+    .stuffing(enStuffing),
+    .runCRC(enCRC),
     .done(endtx),
     .ext_addressing(canstdaddr),
     .payload(canPayload),
