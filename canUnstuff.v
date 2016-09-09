@@ -53,7 +53,7 @@ module canUnstuff #(parameter CONSEC = 5) (
 
   always @(negedge clkin) begin  //when we expect the next bit to change.
     if(en) begin
-      stuffBit <= !bitState;  //store the bit to stuff so we can mask it into place with combinatorial logic
+      stuffBit <= ~bitState;  //store the bit to stuff so we can mask it into place with combinatorial logic
       stuffing <= (consecBits >= CONSEC);  //too many consecutive bits, start stuffing
     end else begin
       stuffing <= 0;

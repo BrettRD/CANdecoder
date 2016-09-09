@@ -27,7 +27,7 @@ module spiSlave #(
   assign core_clk = clk | cs; //cs is active low, shift in on 
 
   reg p_clk = 0;
-  assign p_strobe = !mode & p_clk;
+  assign p_strobe = ~mode & p_clk;
   reg [WIDTH-1:0] p_buf;
 
   always @(negedge core_clk) begin  //cs or clk falling edge: set miso

@@ -19,7 +19,6 @@ module packetCapture(
     output tx,                 //canTX line to ack
     output reg stuffing,       //remove bit-stuffing
     output reg runCRC,         //count incoming bits for CRC
-    output reg checkCRC,       //CRC has been received
     output done,
     output ext_addressing,
     output [64] payload,
@@ -98,25 +97,25 @@ module packetCapture(
   //drive the ack bit at the right time. External logic can handle the address matching
   assign tx = selector[ACK_LSB] & ack;
 
-  //assign done = selector[IFS_LSB];
   assign done = selector[IFS_LSB];
+
 
   reg crcmsbD;  //allow halt of CRC updates prior to CRC reception
 
-  reg j;  //used in for loop
+  //reg j;  //used in for loop
   always @(posedge clk or posedge rst) begin
     if(rst) begin
       //packet <= 0;
     end else begin
       if(en) begin
         //load the rx line into the appropriate bit of the packet:
-        //packet <= (selector & {HEAD+1{rx}}) | (!selector & packet); //glitching!?!
+        packet <= (selector & {HEAD+1{rx}}) | (~selector & packet); //not glitching 
 
-        for (j = 0; j<(HEAD+1); j=j+1) begin
-          if(selector[j]) packet[j] <= rx;
-        end
+        //for (j = 0; j<(HEAD+1); j=j+1) begin
+        //  if(selector[j]) packet[j] <= rx;
+        //end
 
-        if(tx & !rx) begin
+        if(tx & ~rx) begin
           //we've failed to deliver the ack to the bus, throw some kind of error flag
         end
       end
@@ -132,7 +131,6 @@ module packetCapture(
 
       stuffing <= 0;
       runCRC <= 0;
-      checkCRC <= 0;
     end else begin
       if(en) begin
         //heaps of right shift operations:

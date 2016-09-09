@@ -57,9 +57,9 @@ module iCE40_top(
 
   assign led[3:0] = canPacket[83:80];
   //assign led[3:0] = canPayload[51:48];
-  //assign led[4] = !din;
+  //assign led[4] = ~din;
   //assign led[4] = clkin;
-  assign led[4] = !pkRst;
+  assign led[4] = ~pkRst;
 
 
   //assign clkin = pmod_0;  //use the baud clock from now on
@@ -71,8 +71,8 @@ module iCE40_top(
   
   parameter CLK_MAX = (CLK_RATE/BAUD_RATE);  //96
 
-  //parameter SYNC_TOL = (CLK_MAX/10);  //9
-  parameter SYNC_TOL = 9;
+  parameter SYNC_TOL = (CLK_MAX/10);  //9
+  //parameter SYNC_TOL = 9;
   parameter SYNC_MAX = SYNC_TOL;  //permit edges until SYNC_TOL cycles after counter reset
   parameter SYNC_MIN = (CLK_MAX - SYNC_TOL);  //105, permit edges after SYNC_TOL cycles after counter reset
 
@@ -135,13 +135,24 @@ module iCE40_top(
   end
   
 
+//--------- address matching
+reg addrMatch;
+assign addrMatch = (canAddr == {11'd405,1'd0, 18'd0});  //A keypad I'm using for testing
+reg crcMatch;
+assign crcMatch = (canPacket[31:17]==15'd0);  //run recieved crc through crc module
+//assign crcMatch = (canPacket[31:17]==crcsum[14:0]); //stop crc module before crc reception
+reg ackMessage;
+assign ackMessage = ((~enCRC) & (addrMatch) & (crcMatch));
 
+
+//--------- Live CAN decoding
   packetCapture stateMachine (
     .rst(pkRst),
     .clk(clkout),
     .rx(din),   //n
     .en(1),
     .dout(canPacket),
+    .ack(addrMatch),
     .stuffing(enStuffing),
     .runCRC(enCRC),
     .done(endtx),

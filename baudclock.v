@@ -40,12 +40,12 @@ module baudclock#(
     end else begin
       rxold <= rx;
 
-      //rxEdge = rx & !rxold;  //rising edge only
-      rxEdge = !rx & rxold;  //falling edge only
+      //rxEdge = rx & ~rxold;  //rising edge only
+      rxEdge = ~rx & rxold;  //falling edge only
       //rxEdge = rx ^ rxold;  //any edge
       inWindow = (counter < sync_max) || (counter>sync_min);
 
-      if(rxEdge && inWindow && !trig) begin
+      if(rxEdge & inWindow & ~trig) begin
           counter <= 0;  //we can re-sync the clock
           trig <= 1;   
           lock <= 1;
@@ -69,13 +69,13 @@ module baudclock#(
         glitch <= 0;  //reset the glitch flag
       end
 
-      if(rxEdge && !inWindow) begin
+      if(rxEdge & ~inWindow) begin
         lock <= 0;  //we're lost.
       end
 
-      //if(rxEdge && trig && !inWindow) begin  //early rxEdge after sync (wrong baud rate?)
-      if(rxEdge && trig && inWindow) begin  //hiccup on the rx line (logic glitch)
-      //if(rxEdge && trig) begin  //pedantic
+      //if(rxEdge & trig & ~inWindow) begin  //early rxEdge after sync (wrong baud rate?)
+      if(rxEdge & trig & inWindow) begin  //hiccup on the rx line (logic glitch)
+      //if(rxEdge & trig) begin  //pedantic
         glitch <= 1; //we've seen two rx edges this clock cycle
       end
 
